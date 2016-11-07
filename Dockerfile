@@ -1,9 +1,17 @@
 FROM alpine:3.4
 
 ENV NGINX_VERSION 1.11.4
+ENV LUAJIT_LIB /usr/local/lib
+ENV LUAJIT_INC /usr/local/include/luajit-2.1
 
-RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
-	&& CONFIG="\
+ARG VER_NGINX_GEOIP=1.1
+ARG VER_NGINX_DEVEL_KIT=0.3.0
+ARG VER_NGINX_LUA=0.10.7
+ARG VER_LUAJIT=2.1.0-beta2
+ARG VER_RESTY_CORE=0.1.9
+COPY nginx-ssl-cert.patch /tmp/nginx-ssl-cert.patch
+
+RUN CONFIG="\
 		--prefix=/etc/nginx \
 		--sbin-path=/usr/sbin/nginx \
 		--modules-path=/usr/lib/nginx/modules \
@@ -12,6 +20,7 @@ RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 		--http-log-path=/var/log/nginx/access.log \
 		--pid-path=/var/run/nginx.pid \
 		--lock-path=/var/run/nginx.lock \
+		--with-pcre-jit \
 		--http-client-body-temp-path=/var/cache/nginx/client_temp \
 		--http-proxy-temp-path=/var/cache/nginx/proxy_temp \
 		--http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp \
@@ -22,39 +31,55 @@ RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 		--with-threads \
 		--with-stream \
 		--with-http_v2_module \
-		--add-dynamic-module=/usr/src/ngx_http_geoip2_module-1.1 \
+		--with-ld-opt='-Wl,-rpath,$LUAJIT_LIB' \
+		--add-module=/tmp/ngx_http_geoip2_module-${VER_NGINX_GEOIP} \
+		--add-module=/tmp/ngx_devel_kit-${VER_NGINX_DEVEL_KIT} \
+		--add-module=/tmp/lua-nginx-module-${VER_NGINX_LUA} \
 	" \
 	&& addgroup -S www-data \
 	&& adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G www-data www-data \
 	&& apk add --no-cache --virtual .build-deps \
-		gcc \
-		libc-dev \
-		make \
-		openssl-dev \
-		pcre-dev \
-		zlib-dev \
-		linux-headers \
-		curl \
-		gnupg \
-		libmaxminddb-dev \
-	&& curl -fSL http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.mmdb.gz -o /etc/GeoLite2-Country.mmdb.gz \
-	&& gzip -d /etc/GeoLite2-Country.mmdb.gz \
-	&& curl -fSL https://github.com/leev/ngx_http_geoip2_module/archive/1.1.tar.gz -o ngx_http_geoip2_module.tar.gz \
-	&& curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
-	&& curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz.asc  -o nginx.tar.gz.asc \
-	&& export GNUPGHOME="$(mktemp -d)" \
-	&& gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$GPG_KEYS" \
-	&& gpg --batch --verify nginx.tar.gz.asc nginx.tar.gz \
-	&& rm -r "$GNUPGHOME" nginx.tar.gz.asc \
-	&& mkdir -p /usr/src \
-	&& tar -zxC /usr/src -f ngx_http_geoip2_module.tar.gz \
-	&& tar -zxC /usr/src -f nginx.tar.gz \
-	&& rm nginx.tar.gz \
-	&& rm ngx_http_geoip2_module.tar.gz \
-	&& cd /usr/src/nginx-$NGINX_VERSION \
-	&& ./configure $CONFIG --with-debug \
+        libc-dev \
+        make \
+        openssl-dev \
+        pcre-dev \
+        zlib-dev \
+        linux-headers \
+        curl \
+        libmaxminddb-dev \
+        postgresql-dev \
+        build-base \
+        unzip \
+        luajit \
+    && cd /tmp \
+    && curl -fSL http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.mmdb.gz -o /etc/GeoLite2-Country.mmdb.gz \
+    && gzip -d /etc/GeoLite2-Country.mmdb.gz \
+    && curl -fSL http://luajit.org/download/LuaJIT-${VER_LUAJIT}.tar.gz -o LuaJIT-${VER_LUAJIT}.tar.gz \
+    && curl -fSL https://github.com/leev/ngx_http_geoip2_module/archive/${VER_NGINX_GEOIP}.tar.gz -o ngx_http_geoip2_module.tar.gz \
+    && curl -fSL https://github.com/simpl/ngx_devel_kit/archive/v${VER_NGINX_DEVEL_KIT}.tar.gz -o ngx_devel_kit.tar.gz \
+    && curl -fSL https://github.com/openresty/lua-nginx-module/archive/v${VER_NGINX_LUA}.tar.gz -o lua-nginx-module.tar.gz \
+    && curl -fSL https://github.com/openresty/lua-resty-core/archive/v${VER_RESTY_CORE}.tar.gz -o lua-resty-core.tar.gz \
+    && curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
+    && tar -xzvf LuaJIT-${VER_LUAJIT}.tar.gz && rm LuaJIT-${VER_LUAJIT}.tar.gz \
+    && tar -xzvf ngx_http_geoip2_module.tar.gz && rm ngx_http_geoip2_module.tar.gz \
+    && tar -xzvf ngx_devel_kit.tar.gz && rm ngx_devel_kit.tar.gz \
+    && tar -xzvf lua-nginx-module.tar.gz && rm lua-nginx-module.tar.gz \
+    && tar -xzvf lua-resty-core.tar.gz && rm lua-resty-core.tar.gz \
+    && tar -xzvf nginx.tar.gz && rm nginx.tar.gz \
+    && mv /tmp/lua-resty-core-${VER_RESTY_CORE} /etc/lua-resty-core \
+	&& cd /tmp/LuaJIT-${VER_LUAJIT} \
 	&& make -j$(getconf _NPROCESSORS_ONLN) \
-	&& mv objs/nginx objs/nginx-debug \
+	&& make install \
+	&& ln -sf /usr/local/bin/luajit-${VER_LUAJIT} /usr/local/bin/luajit \
+	&& ln -sf /usr/local/bin/luajit-${VER_LUAJIT} /usr/local/bin/lua \
+	&& cd /tmp/nginx-$NGINX_VERSION \
+	&& sed -i -e "s/\"Server: nginx\" CRLF/\"Server: pasaport.io\" CRLF/g" \
+        -e "s/\"Server: \" NGINX_VER CRLF/\"Server: pasaport.io\" NGINX_VER CRLF/g" \
+        src/http/ngx_http_header_filter_module.c \
+	&& sed -i -e \
+	    "s/static const u_char nginx\[5\] = \"\\\\x84\\\\xaa\\\\x63\\\\x55\\\\xe7\";/static const u_char nginx\[\] = \{0x0B, \'p\', \'a\', \'s\', \'a\', \'p\', \'o\', \'r\', \'t\', \'\.\', \'i\', \'o\'\};/g" \
+	    src/http/v2/ngx_http_v2_filter_module.c \
+	&& patch -p1 < /tmp/nginx-ssl-cert.patch && rm /tmp/nginx-ssl-cert.patch \
 	&& ./configure $CONFIG \
 	&& make -j$(getconf _NPROCESSORS_ONLN) \
 	&& make install \
@@ -63,12 +88,14 @@ RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 	&& mkdir -p /usr/share/nginx/html/ \
 	&& install -m644 html/index.html /usr/share/nginx/html/ \
 	&& install -m644 html/50x.html /usr/share/nginx/html/ \
-	&& install -m755 objs/nginx-debug /usr/sbin/nginx-debug \
 	&& ln -s ../../usr/lib/nginx/modules /etc/nginx/modules \
 	&& strip /usr/sbin/nginx* \
-	&& strip /usr/lib/nginx/modules/*.so \
-	&& rm -rf /usr/src/nginx-$NGINX_VERSION \
-	&& rm -rf /usr/src/ngx_http_geoip2_module-1.1 \
+	&& rm -rf \
+	    /tmp/ngx_http_geoip2_module-${VER_NGINX_GEOIP} \
+	    /tmp/ngx_devel_kit-${VER_NGINX_DEVEL_KIT} \
+	    /tmp/lua-nginx-module-${VER_NGINX_LUA} \
+	    /tmp/LuaJIT-${VER_LUAJIT} \
+	    /tmp/nginx-${NGINX_VERSION} \
 	&& apk add --no-cache --virtual .gettext gettext \
 	&& mv /usr/bin/envsubst /tmp/ \
 	\
@@ -79,17 +106,19 @@ RUN GPG_KEYS=B0F4253373F8F6F510D42178520A9993A1C052F8 \
 			| xargs -r apk info --installed \
 			| sort -u \
 	)" \
+	&& mv /tmp/envsubst /usr/local/bin/ \
 	&& apk add --no-cache --virtual .nginx-rundeps $runDeps \
 	&& apk del .build-deps \
 	&& apk del .gettext \
-	&& mv /tmp/envsubst /usr/local/bin/ \
 	\
 	# forward request and error logs to docker log collector
 	&& ln -sf /dev/stdout /var/log/nginx/access.log \
 	&& ln -sf /dev/stderr /var/log/nginx/error.log \
-	&& echo "upstream php-upstream { server php:9000; }" > /etc/nginx/conf.d/upstream.conf
+	&& mkdir -p /tmp/nginx/cache \
+	&& mkdir -p /tmp/nginx/tmp
 
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY upstream.conf /etc/nginx/conf.d/upstream.conf
 COPY symfony.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80 443
