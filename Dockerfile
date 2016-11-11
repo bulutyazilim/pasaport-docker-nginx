@@ -1,6 +1,6 @@
 FROM alpine:3.4
 
-ENV NGINX_VERSION 1.11.4
+ENV NGINX_VERSION 1.11.5
 ENV LUAJIT_LIB /usr/local/lib
 ENV LUAJIT_INC /usr/local/include/luajit-2.1
 
