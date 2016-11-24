@@ -47,7 +47,6 @@ RUN CONFIG="\
         linux-headers \
         curl \
         libmaxminddb-dev \
-        postgresql-dev \
         build-base \
         unzip \
         luajit \
@@ -118,9 +117,10 @@ RUN CONFIG="\
 	&& mkdir -p /tmp/nginx/tmp
 
 COPY nginx.conf /etc/nginx/nginx.conf
-COPY upstream.conf /etc/nginx/conf.d/upstream.conf
-COPY symfony.conf /etc/nginx/conf.d/default.conf
+COPY default.conf /etc/nginx/conf.d/default.conf
+COPY entrypoint.sh /
 
 EXPOSE 80 443
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["nginx"]
