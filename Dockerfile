@@ -1,9 +1,10 @@
 FROM alpine:3.4
 
-ENV NGINX_VERSION 1.11.5
+ENV NGINX_VERSION 1.11.6
 ENV LUAJIT_LIB /usr/local/lib
 ENV LUAJIT_INC /usr/local/include/luajit-2.1
 
+ARG VER_DOCKERIZE=v0.2.0
 ARG VER_NGINX_GEOIP=1.1
 ARG VER_NGINX_DEVEL_KIT=0.3.0
 ARG VER_NGINX_LUA=0.10.7
@@ -51,6 +52,7 @@ RUN CONFIG="\
         unzip \
         luajit \
     && cd /tmp \
+    && curl -fSL  https://github.com/jwilder/dockerize/releases/download/${VER_DOCKERIZE}/dockerize-linux-amd64-${VER_DOCKERIZE}.tar.gz -o dockerize.tar.gz \
     && curl -fSL http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.mmdb.gz -o /etc/GeoLite2-Country.mmdb.gz \
     && gzip -d /etc/GeoLite2-Country.mmdb.gz \
     && curl -fSL http://luajit.org/download/LuaJIT-${VER_LUAJIT}.tar.gz -o LuaJIT-${VER_LUAJIT}.tar.gz \
@@ -59,6 +61,7 @@ RUN CONFIG="\
     && curl -fSL https://github.com/openresty/lua-nginx-module/archive/v${VER_NGINX_LUA}.tar.gz -o lua-nginx-module.tar.gz \
     && curl -fSL https://github.com/openresty/lua-resty-core/archive/v${VER_RESTY_CORE}.tar.gz -o lua-resty-core.tar.gz \
     && curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
+    && tar -C /usr/local/bin -xzvf dockerize.tar.gz && rm dockerize.tar.gz \
     && tar -xzvf LuaJIT-${VER_LUAJIT}.tar.gz && rm LuaJIT-${VER_LUAJIT}.tar.gz \
     && tar -xzvf ngx_http_geoip2_module.tar.gz && rm ngx_http_geoip2_module.tar.gz \
     && tar -xzvf ngx_devel_kit.tar.gz && rm ngx_devel_kit.tar.gz \
@@ -109,18 +112,13 @@ RUN CONFIG="\
 	&& apk add --no-cache --virtual .nginx-rundeps $runDeps \
 	&& apk del .build-deps \
 	&& apk del .gettext \
-	\
-	# forward request and error logs to docker log collector
-	&& ln -sf /dev/stdout /var/log/nginx/access.log \
-	&& ln -sf /dev/stderr /var/log/nginx/error.log \
 	&& mkdir -p /tmp/nginx/cache \
 	&& mkdir -p /tmp/nginx/tmp
 
 COPY nginx.conf /etc/nginx/nginx.conf
-COPY default.conf /etc/nginx/conf.d/default.conf
+COPY default.tmpl /etc/nginx/conf.d/default.tmpl
 COPY entrypoint.sh /
 
 EXPOSE 80 443
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["nginx"]

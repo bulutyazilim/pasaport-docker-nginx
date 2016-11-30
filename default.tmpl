@@ -12,7 +12,7 @@ server {
     server_name api.*;
 
     location / {
-        proxy_pass http://KONG_HOST:KONG_PORT;
+        proxy_pass http://{{ .Env.KONG_HOST }}:{{ .Env.KONG_PORT }};
         proxy_set_header    Host            $host;
         proxy_set_header    X-Real-IP       $remote_addr;
         proxy_set_header    X-Forwarded-for $remote_addr;
@@ -20,10 +20,11 @@ server {
         proxy_connect_timeout 300;
     }
 }
+{{if ne .Env.ENV "PROD"}}
 server {
     server_name  adminapi.*;
     location / {
-        proxy_pass http://KONG_ADMIN_HOST:KONG_ADMIN_PORT;
+        proxy_pass http://{{ .Env.KONG_ADMIN_HOST }}:{{ .Env.KONG_ADMIN_PORT }};
         proxy_set_header    Host            $host;
         proxy_set_header    X-Real-IP       $remote_addr;
         proxy_set_header    X-Forwarded-for $remote_addr;
@@ -31,7 +32,7 @@ server {
         proxy_connect_timeout 300;
     }
 }
-
+{{end}}
 ### lua configurations for dynamic ssl
 lua_package_path "/etc/lua-resty-core/lib/?.lua;;";
 lua_shared_dict ssls 2m;
@@ -80,11 +81,6 @@ server {
     }
     ### static files
     location ~*  \.(jpg|jpeg|png|gif|ico|css|js|json|xml|html|woff|woff2|ttf|otf|svg|eot)$ {
-        ### ENABLE CORS
-        add_header 'Access-Control-Allow-Origin' '*';
-        add_header 'Access-Control-Allow-Methods' 'GET';
-        add_header 'Access-Control-Allow-Headers' 'DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type';
-
         add_header 'Cache-Control' 'public';
         expires 365d;
         access_log off;
@@ -107,9 +103,7 @@ server {
             add_header 'Content-Length' 0;
             return 204;
         }
-        if ($request_method !~ ^(GET|HEAD|POST|PUT)$) {
-            return 444;
-        }
+
         add_header 'Access-Control-Allow-Origin' '*' 'always';
         add_header 'Access-Control-Allow-Methods' 'GET, POST, PUT, OPTIONS' 'always';
         add_header 'Access-Control-Allow-Headers' 'Authorization,DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type' 'always';
@@ -119,15 +113,17 @@ server {
         add_header X-XSS-Protection "1;	mode=block";
         add_header X-Content-Type-Options "nosniff";
 
+    {{if eq .Env.ENV "PROD"}}
         ### CACHE
-        #ENV_prod set $skip_cache 1;
-        #ENV_prod if ($request_uri ~* '(/login)') { set $skip_cache 0; }
-        #ENV_prod add_header	X-Cache-Status $upstream_cache_status;
-        #ENV_prod fastcgi_cache phpfpmcache;
-        #ENV_prod fastcgi_cache_bypass $skip_cache;
-        #ENV_prod fastcgi_no_cache $skip_cache;
+        set $skip_cache 1;
+        if ($request_uri ~* '(/login)') { set $skip_cache 0; }
+        add_header	X-Cache-Status $upstream_cache_status;
+        fastcgi_cache phpfpmcache;
+        fastcgi_cache_bypass $skip_cache;
+        fastcgi_no_cache $skip_cache;
+    {{end}}
 
-        fastcgi_pass PHP_HOST:PHP_PORT;
+        fastcgi_pass {{ .Env.PHP_HOST }}:{{ .Env.PHP_PORT }};
         fastcgi_split_path_info ^(.+\.php)(/.*)$;
         include fastcgi_params;
 
