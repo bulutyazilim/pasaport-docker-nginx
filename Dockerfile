@@ -42,6 +42,7 @@ RUN CONFIG="\
 	&& apk add --no-cache --virtual .build-deps \
         libc-dev \
         make \
+        openssl \
         openssl-dev \
         pcre-dev \
         zlib-dev \
@@ -109,6 +110,10 @@ RUN CONFIG="\
 			| sort -u \
 	)" \
 	&& mv /tmp/envsubst /usr/local/bin/ \
+    && mkdir /ssl \
+	&& openssl req -subj '/CN=localhost/O=s/C=TR' -new -newkey rsa:2048 -sha256 -days 365 -nodes -x509 -keyout /ssl/server.key -out /ssl/server.crt \
+	&& openssl rsa -in /ssl/server.key -outform DER -out /ssl/server.key.der \
+	&& openssl dhparam -out /ssl/dhparam.pem 2048 \
 	&& apk add --no-cache --virtual .nginx-rundeps $runDeps \
 	&& apk del .build-deps \
 	&& apk del .gettext \
