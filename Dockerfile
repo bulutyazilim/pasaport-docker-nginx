@@ -39,6 +39,8 @@ RUN CONFIG="\
 	" \
 	&& addgroup -S www-data \
 	&& adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G www-data www-data \
+	&& apk add --no-cache curl \
+	&& echo "downloading packages..." \
 	&& apk add --no-cache --virtual .build-deps \
         libc-dev \
         make \
@@ -47,21 +49,21 @@ RUN CONFIG="\
         pcre-dev \
         zlib-dev \
         linux-headers \
-        curl \
         libmaxminddb-dev \
         build-base \
         unzip \
-        luajit \
+        luajit >/dev/null 2>&1 \
     && cd /tmp \
-    && curl -fSL  https://github.com/jwilder/dockerize/releases/download/${VER_DOCKERIZE}/dockerize-linux-amd64-${VER_DOCKERIZE}.tar.gz -o dockerize.tar.gz \
-    && curl -fSL http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.mmdb.gz -o /etc/GeoLite2-Country.mmdb.gz \
+    && curl -fSL  https://github.com/jwilder/dockerize/releases/download/${VER_DOCKERIZE}/dockerize-linux-amd64-${VER_DOCKERIZE}.tar.gz -o dockerize.tar.gz >/dev/null 2>&1 \
+    && curl -fSL http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.mmdb.gz -o /etc/GeoLite2-Country.mmdb.gz >/dev/null 2>&1 \
+    && curl -fSL http://luajit.org/download/LuaJIT-${VER_LUAJIT}.tar.gz -o LuaJIT-${VER_LUAJIT}.tar.gz >/dev/null 2>&1 \
+    && curl -fSL https://github.com/leev/ngx_http_geoip2_module/archive/${VER_NGINX_GEOIP}.tar.gz -o ngx_http_geoip2_module.tar.gz >/dev/null 2>&1 \
+    && curl -fSL https://github.com/simpl/ngx_devel_kit/archive/v${VER_NGINX_DEVEL_KIT}.tar.gz -o ngx_devel_kit.tar.gz >/dev/null 2>&1 \
+    && curl -fSL https://github.com/openresty/lua-nginx-module/archive/v${VER_NGINX_LUA}.tar.gz -o lua-nginx-module.tar.gz >/dev/null 2>&1 \
+    && curl -fSL https://github.com/openresty/lua-resty-core/archive/v${VER_RESTY_CORE}.tar.gz -o lua-resty-core.tar.gz >/dev/null 2>&1 \
+    && curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz >/dev/null 2>&1 \
+    && wait \
     && gzip -d /etc/GeoLite2-Country.mmdb.gz \
-    && curl -fSL http://luajit.org/download/LuaJIT-${VER_LUAJIT}.tar.gz -o LuaJIT-${VER_LUAJIT}.tar.gz \
-    && curl -fSL https://github.com/leev/ngx_http_geoip2_module/archive/${VER_NGINX_GEOIP}.tar.gz -o ngx_http_geoip2_module.tar.gz \
-    && curl -fSL https://github.com/simpl/ngx_devel_kit/archive/v${VER_NGINX_DEVEL_KIT}.tar.gz -o ngx_devel_kit.tar.gz \
-    && curl -fSL https://github.com/openresty/lua-nginx-module/archive/v${VER_NGINX_LUA}.tar.gz -o lua-nginx-module.tar.gz \
-    && curl -fSL https://github.com/openresty/lua-resty-core/archive/v${VER_RESTY_CORE}.tar.gz -o lua-resty-core.tar.gz \
-    && curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
     && tar -C /usr/local/bin -xzvf dockerize.tar.gz && rm dockerize.tar.gz \
     && tar -xzvf LuaJIT-${VER_LUAJIT}.tar.gz && rm LuaJIT-${VER_LUAJIT}.tar.gz \
     && tar -xzvf ngx_http_geoip2_module.tar.gz && rm ngx_http_geoip2_module.tar.gz \
@@ -113,7 +115,6 @@ RUN CONFIG="\
     && mkdir /ssl \
 	&& openssl req -subj '/CN=localhost/O=s/C=TR' -new -newkey rsa:2048 -sha256 -days 365 -nodes -x509 -keyout /ssl/server.key -out /ssl/server.crt \
 	&& openssl rsa -in /ssl/server.key -outform DER -out /ssl/server.key.der \
-	&& openssl dhparam -out /ssl/dhparam.pem 2048 \
 	&& apk add --no-cache --virtual .nginx-rundeps $runDeps \
 	&& apk del .build-deps \
 	&& apk del .gettext \
@@ -123,6 +124,7 @@ RUN CONFIG="\
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY default.tmpl /etc/nginx/conf.d/default.tmpl
 COPY entrypoint.sh /
+COPY dhparam.pem /ssl/dhparam.pem
 
 EXPOSE 80 443
 
