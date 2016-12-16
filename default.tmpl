@@ -41,7 +41,7 @@ lua_shared_dict ssls 2m;
 server {
     listen	443	ssl http2;
     server_name _;
-    root /var/www/html/web;
+    root {{ .Env.ROOT_DIR }};
 
     ### SSL CONF
     ssl on;
@@ -61,7 +61,11 @@ server {
         if server_name == nil then
             server_name = "default"
         end
-        local cert_dir = "/var/www/html/ssl/" .. server_name
+        local cert_dir = {{ .Env.SSL_DIR }} .. server_name
+
+        if server_name == "localhost" then
+            cert_dir = "/ssl/localhost"
+        end
 
         local cert = ngx.shared.ssls:get(server_name)
         if cert == nil then
