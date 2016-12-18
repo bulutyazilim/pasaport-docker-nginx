@@ -1,6 +1,6 @@
 FROM alpine:3.4
 
-ENV NGINX_VERSION 1.11.6
+ENV NGINX_VERSION 1.11.7
 ENV LUAJIT_LIB /usr/local/lib
 ENV LUAJIT_INC /usr/local/include/luajit-2.1
 
@@ -10,6 +10,7 @@ ARG VER_NGINX_DEVEL_KIT=0.3.0
 ARG VER_NGINX_LUA=0.10.7
 ARG VER_LUAJIT=2.1.0-beta2
 ARG VER_RESTY_CORE=0.1.9
+ARG VER_LUAROCKS=2.4.2
 COPY nginx-ssl-cert.patch /tmp/nginx-ssl-cert.patch
 
 RUN CONFIG="\
@@ -46,6 +47,7 @@ RUN CONFIG="\
         make \
         openssl \
         openssl-dev \
+        postgresql-dev \
         pcre-dev \
         zlib-dev \
         linux-headers \
@@ -54,7 +56,7 @@ RUN CONFIG="\
         unzip \
         luajit >/dev/null 2>&1 \
     && cd /tmp \
-    && curl -fSL  https://github.com/jwilder/dockerize/releases/download/${VER_DOCKERIZE}/dockerize-linux-amd64-${VER_DOCKERIZE}.tar.gz -o dockerize.tar.gz >/dev/null 2>&1 \
+    && curl -fSL https://github.com/jwilder/dockerize/releases/download/${VER_DOCKERIZE}/dockerize-linux-amd64-${VER_DOCKERIZE}.tar.gz -o dockerize.tar.gz >/dev/null 2>&1 \
     && curl -fSL http://geolite.maxmind.com/download/geoip/database/GeoLite2-Country.mmdb.gz -o /etc/GeoLite2-Country.mmdb.gz >/dev/null 2>&1 \
     && curl -fSL http://luajit.org/download/LuaJIT-${VER_LUAJIT}.tar.gz -o LuaJIT-${VER_LUAJIT}.tar.gz >/dev/null 2>&1 \
     && curl -fSL https://github.com/leev/ngx_http_geoip2_module/archive/${VER_NGINX_GEOIP}.tar.gz -o ngx_http_geoip2_module.tar.gz >/dev/null 2>&1 \
@@ -62,6 +64,7 @@ RUN CONFIG="\
     && curl -fSL https://github.com/openresty/lua-nginx-module/archive/v${VER_NGINX_LUA}.tar.gz -o lua-nginx-module.tar.gz >/dev/null 2>&1 \
     && curl -fSL https://github.com/openresty/lua-resty-core/archive/v${VER_RESTY_CORE}.tar.gz -o lua-resty-core.tar.gz >/dev/null 2>&1 \
     && curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz >/dev/null 2>&1 \
+    && curl -fSL http://luarocks.github.io/luarocks/releases/luarocks-${VER_LUAROCKS}.tar.gz -o luarocks.tar.gz >/dev/null 2>&1 \
     && wait \
     && gzip -d /etc/GeoLite2-Country.mmdb.gz \
     && tar -C /usr/local/bin -xzvf dockerize.tar.gz && rm dockerize.tar.gz \
@@ -71,12 +74,19 @@ RUN CONFIG="\
     && tar -xzvf lua-nginx-module.tar.gz && rm lua-nginx-module.tar.gz \
     && tar -xzvf lua-resty-core.tar.gz && rm lua-resty-core.tar.gz \
     && tar -xzvf nginx.tar.gz && rm nginx.tar.gz \
+    && tar -xzvf luarocks.tar.gz && rm luarocks.tar.gz \
     && mv /tmp/lua-resty-core-${VER_RESTY_CORE} /etc/lua-resty-core \
 	&& cd /tmp/LuaJIT-${VER_LUAJIT} \
 	&& make -j$(getconf _NPROCESSORS_ONLN) \
 	&& make install \
 	&& ln -sf /usr/local/bin/luajit-${VER_LUAJIT} /usr/local/bin/luajit \
 	&& ln -sf /usr/local/bin/luajit-${VER_LUAJIT} /usr/local/bin/lua \
+	&& cd /tmp/luarocks-${VER_LUAROCKS} \
+	&& ./configure --with-lua-include=${LUAJIT_INC} \
+	&& make -j$(getconf _NPROCESSORS_ONLN) build \
+	&& make install \
+	&& luarocks install pgmoon \
+	&& luarocks install lbase64 \
 	&& cd /tmp/nginx-$NGINX_VERSION \
 	&& sed -i -e "s/\"Server: nginx\" CRLF/\"Server: pasaport.io\" CRLF/g" \
         -e "s/\"Server: \" NGINX_VER CRLF/\"Server: pasaport.io\" NGINX_VER CRLF/g" \
@@ -86,7 +96,7 @@ RUN CONFIG="\
 	    src/http/v2/ngx_http_v2_filter_module.c \
 	&& patch -p1 < /tmp/nginx-ssl-cert.patch && rm /tmp/nginx-ssl-cert.patch \
 	&& ./configure $CONFIG \
-	&& make -j$(getconf _NPROCESSORS_ONLN) \
+	&& make build \
 	&& make install \
 	&& rm -rf /etc/nginx/html/ \
 	&& mkdir /etc/nginx/conf.d/ \
@@ -101,6 +111,7 @@ RUN CONFIG="\
 	    /tmp/lua-nginx-module-${VER_NGINX_LUA} \
 	    /tmp/LuaJIT-${VER_LUAJIT} \
 	    /tmp/nginx-${NGINX_VERSION} \
+	    /tmp/luarocks-${VER_LUAROCKS} \
 	&& apk add --no-cache --virtual .gettext gettext \
 	&& mv /usr/bin/envsubst /tmp/ \
 	\
@@ -114,7 +125,6 @@ RUN CONFIG="\
 	&& mv /tmp/envsubst /usr/local/bin/ \
     && mkdir /ssl \
 	&& openssl req -subj '/CN=localhost/O=s/C=TR' -new -newkey rsa:2048 -sha256 -days 365 -nodes -x509 -keyout /ssl/server.key -out /ssl/server.crt \
-	&& openssl rsa -in /ssl/server.key -outform DER -out /ssl/server.key.der \
 	&& apk add --no-cache --virtual .nginx-rundeps $runDeps \
 	&& apk del .build-deps \
 	&& apk del .gettext \

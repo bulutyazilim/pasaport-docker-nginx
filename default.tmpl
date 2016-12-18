@@ -55,34 +55,40 @@ server {
     ssl_session_timeout 30m;
     ssl_session_cache shared:SSL:50m;
     ssl_certificate_by_lua_block {
+        local pgmoon = require("pgmoon")
+        local base64 = require("base64")
+
+        local pg = pgmoon.new({
+            host = "{{ .Env.PG_HOST }}",
+            port = "{{ default .Env.PG_PORT "5432" }}",
+            database = "{{ .Env.PG_DB }}",
+            user = "{{ .Env.PG_USER }}",
+            password = "{{ .Env.PG_PASS }}"
+        })
+
+        assert(pg:connect())
+
         local ssl = require "ngx.ssl"
         local server_name = ssl.server_name()
         ssl.clear_certs()
         if server_name == nil then
             server_name = "default"
         end
-        local cert_dir = {{ .Env.SSL_DIR }} .. server_name
-
-        if server_name == "localhost" then
-            cert_dir = "/ssl/localhost"
-        end
 
         local cert = ngx.shared.ssls:get(server_name)
         if cert == nil then
-            local crt_file = io.open(cert_dir .. "/server.crt", "r")
-            local crt_data = crt_file:read("*a")
-            crt_file:close()
-            local crt_der_data = ssl.cert_pem_to_der(crt_data)
+            local sql_res = assert(pg:query("SELECT s1.ssl_cert,s1.ssl_priv FROM settings s1, site s2 WHERE s1.site = CAST (s2.id AS VARCHAR) AND s2.domain=" ..
+                pg:escape_literal(server_name) .. " LIMIT 1;"))
 
-            local key_file = assert(io.open(cert_dir .. "/server.key.der", "r"))
-            local key_der_data = key_file:read("*a")
-            key_file:close()
-
-            cert = {crt = crt_der_data, key = key_der_data}
-            ngx.shared.ssls:set(server_name, cert)
+            if sql_res ~= nil and sql_res[1] ~= nil then
+                cert = {crt = base64.decode(sql_res[1]["ssl_cert"]), key = base64.decode(sql_res[1]["ssl_priv"])}
+                ngx.shared.ssls:set(server_name, cert)
+            end
         end
-        ssl.set_der_cert(cert.crt)
-        ssl.set_der_priv_key(cert.key)
+        if cert ~= nil then
+            ssl.set_der_cert(cert.crt)
+            ssl.set_der_priv_key(cert.key)
+        end
     }
     ### static files
     location ~*  \.(jpg|jpeg|png|gif|ico|css|js|json|xml|html|woff|woff2|ttf|otf|svg|eot)$ {
@@ -138,7 +144,7 @@ server {
 
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
         fastcgi_param HTTPS on;
-        
+
         proxy_set_header    Host            $host;
         proxy_set_header    X-Real-IP       $remote_addr;
         proxy_set_header    X-Forwarded-for $remote_addr;
