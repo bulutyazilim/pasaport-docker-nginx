@@ -75,19 +75,23 @@ server {
             server_name = "default"
         end
 
-        local cert = ngx.shared.ssls:get(server_name)
-        if cert == nil then
+        local ssl_crt = ngx.shared.ssls:get(server_name .. "crt")
+        local ssl_priv = ngx.shared.ssls:get(server_name .. "priv")
+        if ssl_crt == nil or ssl_priv == nil then
             local sql_res = assert(pg:query("SELECT s1.ssl_cert,s1.ssl_priv FROM settings s1, site s2 WHERE s1.site = CAST (s2.id AS VARCHAR) AND s2.domain=" ..
                 pg:escape_literal(server_name) .. " LIMIT 1;"))
 
-            if sql_res ~= nil and sql_res[1] ~= nil then
-                cert = {crt = base64.decode(sql_res[1]["ssl_cert"]), key = base64.decode(sql_res[1]["ssl_priv"])}
-                ngx.shared.ssls:set(server_name, cert)
+            if sql_res ~= nil and sql_res[1] ~= nil and sql_res[1]["ssl_cert"] ~= nil and sql_res[1]["ssl_priv"] ~= nil then
+                ssl_crt = base64.decode(sql_res[1]["ssl_cert"])
+                ssl_priv = base64.decode(sql_res[1]["ssl_priv"])
+
+                ngx.shared.ssls:set(server_name .. "crt", ssl_crt)
+                ngx.shared.ssls:set(server_name .. "priv", ssl_priv)
             end
         end
-        if cert ~= nil then
-            ssl.set_der_cert(cert.crt)
-            ssl.set_der_priv_key(cert.key)
+        if ssl_crt ~= nil and ssl_priv ~= nil then
+            ssl.set_der_cert(ssl_crt)
+            ssl.set_der_priv_key(ssl_priv)
         end
     }
     ### static files
