@@ -8,6 +8,7 @@ if [ -z "$PG_PORT" ]; then PG_PORT="5432"; fi
 if [ -n "$KONG_HOST" ]; then export KONG_HOST=$(nslookup $KONG_HOST | awk '/^Address 1: / { print $3 }'); fi
 if [ -n "$PG_HOST" ]; then export PG_HOST=$(nslookup $PG_HOST | awk '/^Address 1: / { print $3 }'); fi
 if [ -n "$PHP_HOST" ]; then export PHP_HOST=$(nslookup $PHP_HOST | awk '/^Address 1: / { print $3 }'); fi
+if [ -n "$KONG_ADMIN_HOST" ]; then export KONG_ADMIN_HOST=$(nslookup $KONG_ADMIN_HOST | awk '/^Address 1: / { print $3 }'); fi
 
 dockerize \
 -stdout /var/log/nginx/access.log \

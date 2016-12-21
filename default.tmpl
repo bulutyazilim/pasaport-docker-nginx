@@ -1,5 +1,5 @@
-### redirect insecure request to secure
 {{if eq .Env.ENV "PROD"}}
+### redirect insecure request to secure
 server {
   listen 80;
   server_name _;
@@ -24,6 +24,7 @@ server {
 }
 {{if ne .Env.ENV "PROD"}}
 server {
+    listen 80;
     server_name  adminapi.*;
     location / {
         proxy_pass http://{{ .Env.KONG_ADMIN_HOST }}:{{ .Env.KONG_ADMIN_PORT }};
@@ -42,9 +43,9 @@ lua_shared_dict ssls 2m;
 {{end}}
 server {
 {{if eq .Env.ENV "PROD"}}
-    listen	443	ssl http2;
+    listen	443	ssl http2 default_server;
 {{else}}
-    listen 80;
+    listen 80 default_server;
 {{end}}
     server_name _;
     root {{ .Env.ROOT_DIR }};
