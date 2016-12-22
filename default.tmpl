@@ -1,4 +1,4 @@
-{{if eq .Env.ENV "PROD"}}
+{{if eq .Env.ENV "prod"}}
 ### redirect insecure request to secure
 server {
   listen 80;
@@ -22,7 +22,7 @@ server {
         proxy_connect_timeout 300;
     }
 }
-{{if ne .Env.ENV "PROD"}}
+{{if ne .Env.ENV "prod"}}
 server {
     listen 80;
     server_name  adminapi.*;
@@ -36,20 +36,20 @@ server {
     }
 }
 {{end}}
-{{if eq .Env.ENV "PROD"}}
+{{if eq .Env.ENV "prod"}}
 ### lua configurations for dynamic ssl
 lua_package_path "/etc/lua-resty-core/lib/?.lua;;";
 lua_shared_dict ssls 2m;
 {{end}}
 server {
-{{if eq .Env.ENV "PROD"}}
+{{if eq .Env.ENV "prod"}}
     listen	443	ssl http2 default_server;
 {{else}}
     listen 80 default_server;
 {{end}}
     server_name _;
     root {{ .Env.ROOT_DIR }};
-{{if eq .Env.ENV "PROD"}}
+{{if eq .Env.ENV "prod"}}
     ### SSL CONF
     ssl on;
     ssl_certificate /ssl/server.crt;
@@ -136,7 +136,7 @@ server {
         add_header X-XSS-Protection "1;	mode=block";
         add_header X-Content-Type-Options "nosniff";
 
-    {{if eq .Env.ENV "PROD"}}
+    {{if eq .Env.ENV "prod"}}
         ### CACHE
         set $skip_cache 1;
         if ($request_uri ~* '(/login)') { set $skip_cache 0; }
