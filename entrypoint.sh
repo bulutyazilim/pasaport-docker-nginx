@@ -14,4 +14,5 @@ dockerize \
 -stdout /var/log/nginx/access.log \
 -stderr /var/log/nginx/error.log \
 -template /etc/nginx/conf.d/default.tmpl:/etc/nginx/conf.d/default.conf \
+-template /etc/nginx/snippet/ssl.conf.tmpl:/etc/nginx/snippet/ssl.conf \
 nginx

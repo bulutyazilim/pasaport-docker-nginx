@@ -28,6 +28,7 @@ RUN CONFIG="\
 		--http-fastcgi-temp-path=/var/cache/nginx/fastcgi_temp \
 		--user=www-data \
 		--group=www-data \
+		--with-http_realip_module \
 		--with-http_ssl_module \
 		--with-http_gzip_static_module \
 		--with-threads \
@@ -133,6 +134,9 @@ RUN CONFIG="\
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY default.tmpl /etc/nginx/conf.d/default.tmpl
+COPY cache.conf /etc/nginx/snippet/cache.conf
+COPY snippet/* /etc/nginx/snippet/
+COPY realip.conf /etc/nginx/snippet/realip.conf
 COPY entrypoint.sh /
 COPY dhparam.pem /ssl/dhparam.pem
 
