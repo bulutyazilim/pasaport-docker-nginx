@@ -12,44 +12,6 @@ lua_package_path "/etc/lua-resty-core/lib/?.lua;;";
 lua_shared_dict ssls 2m;
 {{end}}
 
-
-### kong api
-server {
-    server_name api.*;
-{{if eq .Env.ENV "prod"}}
-    listen	443	ssl;
-    include /etc/nginx/snippet/ssl.conf;
-{{else}}
-    listen 80;
-{{end}}
-    include /etc/nginx/snippet/realip.conf;
-    location / {
-        proxy_pass http://{{ .Env.KONG_HOST }}:{{ .Env.KONG_PORT }};
-        proxy_set_header    Host            $host;
-        proxy_set_header    X-Real-IP       $remote_addr;
-        proxy_set_header    X-Forwarded-for $remote_addr;
-        port_in_redirect off;
-        proxy_connect_timeout 300;
-    }
-}
-{{if ne .Env.ENV "prod"}}
-server {
-    listen 80;
-    server_name  adminapi.*;
-
-    include /etc/nginx/snippet/realip.conf;
-    location / {
-        proxy_pass http://{{ .Env.KONG_ADMIN_HOST }}:{{ .Env.KONG_ADMIN_PORT }};
-        proxy_set_header    Host            $host;
-        proxy_set_header    X-Real-IP       $remote_addr;
-        proxy_set_header    X-Forwarded-for $remote_addr;
-        port_in_redirect off;
-        proxy_connect_timeout 300;
-    }
-}
-{{end}}
-
-
 server {
     server_name _;
 {{if eq .Env.ENV "prod"}}
