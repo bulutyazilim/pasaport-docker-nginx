@@ -130,7 +130,9 @@ RUN CONFIG="\
 	&& apk del .build-deps \
 	&& apk del .gettext \
 	&& mkdir -p /tmp/nginx/cache \
-	&& mkdir -p /tmp/nginx/tmp
+	&& mkdir -p /tmp/nginx/tmp \
+	&& ln -sf /dev/stdout /var/log/nginx/access.log \
+	&& ln -sf /dev/stderr /var/log/nginx/error.log
 
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY default.tmpl /etc/nginx/conf.d/default.tmpl

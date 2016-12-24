@@ -11,8 +11,6 @@ if [ -n "$PHP_HOST" ]; then export PHP_HOST=$(nslookup $PHP_HOST | awk '/^Addres
 if [ -n "$KONG_ADMIN_HOST" ]; then export KONG_ADMIN_HOST=$(nslookup $KONG_ADMIN_HOST | awk '/^Address 1: / { print $3 }'); fi
 
 dockerize \
--stdout /var/log/nginx/access.log \
--stderr /var/log/nginx/error.log \
 -template /etc/nginx/conf.d/default.tmpl:/etc/nginx/conf.d/default.conf \
 -template /etc/nginx/snippet/ssl.conf.tmpl:/etc/nginx/snippet/ssl.conf \
 nginx
