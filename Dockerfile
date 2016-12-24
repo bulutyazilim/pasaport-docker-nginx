@@ -138,6 +138,7 @@ COPY nginx.conf /etc/nginx/nginx.conf
 COPY default.tmpl /etc/nginx/conf.d/default.tmpl
 COPY snippet/* /etc/nginx/snippet/
 COPY entrypoint.sh /
+COPY create_gzip_files.sh /
 COPY dhparam.pem /ssl/dhparam.pem
 
 EXPOSE 80 443

@@ -10,6 +10,8 @@ if [ -n "$PG_HOST" ]; then export PG_HOST=$(nslookup $PG_HOST | awk '/^Address 1
 if [ -n "$PHP_HOST" ]; then export PHP_HOST=$(nslookup $PHP_HOST | awk '/^Address 1: / { print $3 }'); fi
 if [ -n "$KONG_ADMIN_HOST" ]; then export KONG_ADMIN_HOST=$(nslookup $KONG_ADMIN_HOST | awk '/^Address 1: / { print $3 }'); fi
 
+sh ./create_gzip_files.sh >/dev/null 2>&1
+
 dockerize \
 -template /etc/nginx/conf.d/default.tmpl:/etc/nginx/conf.d/default.conf \
 -template /etc/nginx/snippet/ssl.conf.tmpl:/etc/nginx/snippet/ssl.conf \
